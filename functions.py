@@ -25,20 +25,6 @@ def centroid_in_polygon(centroid, polygon):
         return False
     
 
-def draw_line(event, x, y, flags, param):
-    global line_start, line_end, drawing, line_drawn
-
-    if event == cv2.EVENT_LBUTTONDOWN:
-        drawing = True
-        line_start = (x, y)
-    elif event == cv2.EVENT_MOUSEMOVE:
-        if drawing:
-            line_end = (x, y)
-    elif event == cv2.EVENT_LBUTTONUP:
-        drawing = False
-        line_end = (x, y)
-        line_drawn = True
-
 
 def non_max_suppression(cars_in_frame, overlapThresh):
     '''

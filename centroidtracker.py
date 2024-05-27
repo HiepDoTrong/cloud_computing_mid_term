@@ -155,94 +155,6 @@ class CentroidTracker():
         return self.objects
     
 
-class Person(CentroidTracker):
-    def __init__(self, maxDisappeared=50):
-        # Call the constructor of the parent class
-        super().__init__(maxDisappeared)
-
-
-    def register(self, centroid, rect, carID=0):
-        # Call the parent's register method
-        super().register(centroid)
-
-        # Modify the value in self.objects for this object to be a tuple of centroid and carID
-        self.objects[self.nextObjectID - 1] = [centroid, rect, carID]
-    
-    def update(self, rects, car_objects, overlines):
-        if len(rects) == 0:
-            for objectID in list(self.disappeared.keys()):
-                self.disappeared[objectID] += 1
-
-                if self.disappeared[objectID] > self.maxDisappeared:
-                    self.deregister(objectID)
-
-            return self.objects
-        
-        inputCentroids = np.zeros((len(rects), 2), dtype="int")
-        carCentroids = []
-
-        for ((objectID, centroid_rect), (_, overline))  in zip(car_objects.items(), overlines.items()):
-            centroid, rect = centroid_rect
-            if overline==1: 
-                carCentroids.append(centroid)    
-            else:
-                carCentroids.append((10000, 10000))
- 
-        carCentroids = np.array(carCentroids)
-        # print(len(carCentroids))
-
-        for (i, (startX, startY, endX, endY)) in enumerate(rects):
-            cX = int((startX + endX) / 2.0)
-            cY = int((startY + endY) / 2.0)
-            inputCentroids[i] = (cX, cY)
-
-
-        person_car_dist = dist.cdist(np.array(carCentroids), np.array(inputCentroids))
-        closest_carCentroid_indices = np.argmin(person_car_dist, axis=0)
-        # closest_carCentroids = [carCentroids[i] for i in closest_carCentroid_indices]
-
-        if len(self.objects) == 0:
-            for i in range(0, len(inputCentroids)):
-                
-                self.register(inputCentroids[i], rects[i], closest_carCentroid_indices[i])
-        else:
-            objectIDs = list(self.objects.keys())
-            objectCentroids = [centroid for centroid, rect, carID in self.objects.values()]
-
-            D = dist.cdist(np.array(objectCentroids), inputCentroids)
-
-            rows = D.min(axis=1).argsort()
-            cols = D.argmin(axis=1)[rows]
-
-            usedRows = set()
-            usedCols = set()
-
-            for (row, col) in zip(rows, cols):
-                if row in usedRows or col in usedCols:
-                    continue
-                objectID = objectIDs[row]
-                self.objects[objectID][0] = inputCentroids[col]
-                self.objects[objectID][1] = rects[col]
-                self.disappeared[objectID] = 0
-
-                usedRows.add(row)
-                usedCols.add(col)
-
-            unusedRows = set(range(0, D.shape[0])).difference(usedRows)
-            unusedCols = set(range(0, D.shape[1])).difference(usedCols)
-
-            if D.shape[0] >= D.shape[1]:
-                for row in unusedRows:
-                    objectID = objectIDs[row]
-                    self.disappeared[objectID] += 1
-                    if self.disappeared[objectID] > self.maxDisappeared:
-                        self.deregister(objectID)
-            else:
-                for col in unusedCols:
-                    self.register(inputCentroids[col], rects[col], closest_carCentroid_indices[col])
-        return self.objects, self.disappeared
-
-
 class Car(CentroidTracker):
     def __init__(self, maxDisappeared=50):
         super().__init__(maxDisappeared)
@@ -283,7 +195,7 @@ class Car(CentroidTracker):
             return False
 
     # def update(self, rects, line_start, line_end):
-    def update(self, rects):
+    def update(self, rects, line_start, line_end):
 
         if len(rects) == 0:
             for objectID in list(self.disappeared.keys()):
@@ -315,9 +227,9 @@ class Car(CentroidTracker):
                 if row in usedRows or col in usedCols:
                     continue
                 objectID = objectIDs[row]
-                # if self.same_side(line_start, line_end, self.objects[objectID][0], inputCentroids[col])==False:
+                if self.same_side(line_start, line_end, self.objects[objectID][0], inputCentroids[col])==False:
                     # print(objectID)
-                self.overline[objectID] = self.overline[objectID]*-1
+                    self.overline[objectID] = self.overline[objectID]*-1
                 # if self.move(self.objects[objectID][0], inputCentroids[col]):
                 #     self.moving[objectID] += 1
                 # else:

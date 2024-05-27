@@ -9,6 +9,20 @@ import matplotlib
 import torch.nn.functional as F
 from functions import *
 
+def draw_line(event, x, y, flags, param):
+    global line_start, line_end, drawing, line_drawn
+
+    if event == cv2.EVENT_LBUTTONDOWN:
+        drawing = True
+        line_start = (x, y)
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if drawing:
+            line_end = (x, y)
+    elif event == cv2.EVENT_LBUTTONUP:
+        drawing = False
+        line_end = (x, y)
+        line_drawn = True
+
 screen_width, screen_height = 1280, 640
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -17,7 +31,7 @@ cars = Car()
 (H, W) = (None, None)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = YOLO('/home/dotronghiep/Documents/JVBCompany/car_tracking_JVB/pretrained_yolo/yolov9c.pt')
+model = YOLO('yolov9c.pt')
 model.to(device)  # pretrained YOLOv8n model
 
 matplotlib.use('Agg')
@@ -31,9 +45,9 @@ print("[INFO] starting video stream...")
 
 # VIDEO
 # output video
-out = cv2.VideoWriter('/home/dotronghiep/Documents/Uni/Year3_Term3/cloud_computing/mid_term/output_video/output_1.mp4', fourcc, 30.0, (screen_width, screen_height))
+out = cv2.VideoWriter(r'/home/dotronghiep/Documents/Uni/Year3_Term3/cloud_computing/cloud_computing_mid_term/output_video/output_1.mp4', fourcc, 30.0, (screen_width, screen_height))
 # input video
-vs = cv2.VideoCapture('/home/dotronghiep/Documents/Uni/Year3_Term3/cloud_computing/mid_term/testing_video/test_1.mp4')
+vs = cv2.VideoCapture(r'/home/dotronghiep/Documents/Uni/Year3_Term3/cloud_computing/cloud_computing_mid_term/testing_video/test_1.mp4')
 
 # Đọc frame đầu tiên từ video
 ret, first_frame = vs.read()
@@ -86,7 +100,7 @@ while True:
         frame_tensor = frame_tensor / 255.0
         # frame = frame.unsqueeze(0)
 
-        results = model(frame_tensor, classes=[2,5,7], conf=0.1)  # car 2 5
+        results = model(frame_tensor, classes=[2,5,7], conf=car_confidence)  # car 2 5
         detections = results[0].boxes
         # end inference time
         # inference_et = time.time()
@@ -103,7 +117,7 @@ while True:
         if len(cars_in_frame) > 0:
             cars_in_frame = non_max_suppression(cars_in_frame, overlapThresh=0.85)
         # print(len(cars_in_frame), len(persons_in_frame))
-        car_objects, overlines, car_disappeared = cars.update(cars_in_frame)
+        car_objects, overlines, car_disappeared = cars.update(cars_in_frame, line_start, line_end)
         # match_et = time.time()
         # print(f"Matching time: {match_et - match_st}")
 
@@ -112,15 +126,15 @@ while True:
     for ((objectID, centroid_rect), (_, overline), (_, car_dis))  in zip(car_objects.items(), overlines.items(), car_disappeared.items()):
     # for (objectID, centroid_rect)  in car_objects.items():
         # to detect the car which cross the line
-        # if overline==1:
-        centroid, rect = centroid_rect
+        if overline==1:
+            centroid, rect = centroid_rect
         # if centroid_in_polygon(centroid, polygon) and car_dis == 0:
-        if car_dis == 0:
-            (startX, startY, endX, endY) = rect
-            cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 0, 255), 1)
-            text = "{}".format(objectID) 
-            cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            cv2.circle(frame, (centroid[0], centroid[1]), 2, (0, 0, 255), -1)
+            if car_dis == 0:
+                (startX, startY, endX, endY) = rect
+                cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 0, 255), 1)
+                # text = "{}".format(objectID) 
+                # cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                cv2.circle(frame, (centroid[0], centroid[1]), 2, (0, 0, 255), -1)
 
     cv2.line(frame, line_start, line_end, (0, 0, 255), line_thickness)
     # cv2.polylines(frame, [polygon], isClosed=True, color=(255, 255, 255), thickness=2)
